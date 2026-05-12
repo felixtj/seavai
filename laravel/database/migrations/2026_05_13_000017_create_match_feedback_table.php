@@ -1,0 +1,32 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('match_feedback', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('match_recommendation_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->enum('signal', [
+                'relevant',
+                'not-relevant',
+                'already-seen',
+                'wrong-location',
+                'wrong-remote',
+                'too-senior',
+                'too-junior',
+            ]);
+            $table->timestamp('created_at');                            // immutable — no updated_at
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('match_feedback');
+    }
+};

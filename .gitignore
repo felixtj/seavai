@@ -1,4 +1,5 @@
 .DS_Store
+deploy.sh
 *.pdf
 laravel/.env
 laravel/vendor/
