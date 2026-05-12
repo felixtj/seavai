@@ -8,6 +8,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\Auth\EmailVerificationController;
+use App\Http\Controllers\Candidate\OnboardingController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [WelcomeController::class, 'index'])->name('home');
@@ -42,8 +43,12 @@ Route::middleware('auth')->group(function () {
 
 // ── Protected app routes ──────────────────────────────────────────────────────
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('/dashboard',  fn () => view('app.dashboard'))->name('dashboard');
-    Route::get('/onboarding', fn () => view('app.onboarding'))->name('onboarding');
+    Route::get('/dashboard',  fn () => view('app.dashboard'))->name('dashboard')->middleware('onboarded');
+
+    // Onboarding wizard
+    Route::get('/onboarding',             [OnboardingController::class, 'show'])->name('onboarding');
+    Route::post('/onboarding/step/{step}',[OnboardingController::class, 'save'])->name('onboarding.save');
+    Route::get('/onboarding/back/{step}', [OnboardingController::class, 'back'])->name('onboarding.back');
 });
 
 // ── Public pages ──────────────────────────────────────────────────────────────

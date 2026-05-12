@@ -53,21 +53,22 @@
 
 ## 2. Candidate Profile & Onboarding
 
-- [ ] Migration + model: `candidate_profiles`
-- [ ] Migration + model: `candidate_skills`
-- [ ] Auto-create empty `CandidateProfile` on user register (use model observer)
-- [ ] 5-step onboarding wizard at `/onboarding`:
-  - [ ] Step 1 — Role focus: `digital-marketing / tech / ai-crypto`
-  - [ ] Step 2 — Work prefs: location, remote type, seniority, salary range
-  - [ ] Step 3 — Resume upload (or skip with nudge)
-  - [ ] Step 4 — Top skills (tag input with autocomplete)
-  - [ ] Step 5 — Weekly match email opt-in (yes/no)
-  - Each step: `hx-post` saves data → returns next step partial → no full reload
-  - Alpine progress bar tracks current step
-  - Back button works without losing data
-- [ ] After register, redirect to `/onboarding` if not completed
-- [ ] If skipped, show persistent banner on dashboard
-- [ ] `profile_completeness` int (0–100) recalculated on every profile save
+- [x] Migration + model: `candidate_profiles` — `CandidateProfile` model with `recalculateCompleteness()`
+- [x] Migration + model: `candidate_skills` — `CandidateSkill` model
+- [x] Auto-create empty `CandidateProfile` on user register — `UserObserver` registered in `AppServiceProvider`
+- [x] 5-step onboarding wizard at `/onboarding`:
+  - [x] Step 1 — Role focus: `digital-marketing / tech / ai-crypto` (radio card UI)
+  - [x] Step 2 — Work prefs: location, remote type, seniority, salary range
+  - [x] Step 3 — LinkedIn URL (or skip)
+  - [x] Step 4 — Top skills (Alpine tag input, comma/enter to add, up to 20)
+  - [x] Step 5 — Weekly match email opt-in (checkbox)
+  - [x] Each step: `hx-post` saves → returns next step partial → no full reload
+  - [x] Alpine progress bar tracks current step
+  - [x] Back button works without losing data
+- [x] After register, redirect to `/onboarding` — `RegisterController` + `SocialAuthController` both redirect new users to `/onboarding`
+- [x] If onboarding not complete, `/dashboard` redirects to `/onboarding` — `EnsureOnboardingComplete` middleware with alias `onboarded`
+- [x] `profile_completeness` int (0–100) recalculated on every profile save via `recalculateCompleteness()`
+- [ ] **TODO:** If onboarding skipped partway, show persistent banner on dashboard (implement in Section 6)
 
 ---
 

@@ -2,9 +2,11 @@
 
 namespace App\Models;
 
+use App\Models\CandidateProfile;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -35,5 +37,10 @@ class User extends Authenticatable implements MustVerifyEmail
             'password'          => 'hashed',
             'marketing_opt_in'  => 'boolean',
         ];
+    }
+
+    public function candidateProfile(): HasOne
+    {
+        return $this->hasOne(CandidateProfile::class);
     }
 }

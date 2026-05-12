@@ -61,11 +61,16 @@ cd laravel && php artisan migrate:fresh --seed --force
 - [x] **CI/CD pipeline** — GitHub Actions deploy workflow created (`.github/workflows/deploy.yml`), deploys via FTP to Hostinger on push to main
 - [x] **Git repo** initialised at `seavai/` root with correct `.gitignore`
 
-### Next task — MVP.md Section 2: Candidate Profile & Onboarding
+- [x] **Section 2 complete** — `CandidateProfile` + `CandidateSkill` models, `UserObserver` auto-creates profile on register, 5-step HTMX onboarding wizard, `EnsureOnboardingComplete` middleware redirects `/dashboard` to `/onboarding` until done
+
+### Next task — MVP.md Section 3: Resume Upload & AI Parsing
 Pick up from here in the next session:
-1. Add `CandidateProfile` and `CandidateSkill` models (migrations already done)
-2. Model observer to auto-create `CandidateProfile` on user register
-3. 5-step onboarding wizard at `/onboarding` using HTMX partial swaps
+1. `Resume` + `ResumeVersion` models (migrations already done)
+2. Drag-and-drop upload UI (Alpine), store to `storage/app/resumes/{user_id}/`
+3. Secure download route (auth middleware, stream — never expose path)
+4. `ParseResumeJob` — PDF via `smalot/pdfparser`, DOCX via `phpoffice/phpword`, send to OpenAI
+5. HTMX polling every 3s until `status = parsed`
+6. Parsed data review form (editable), save to `candidate_profiles` + `candidate_skills`
 
 ### Before first push to GitHub
 - Add GitHub Secrets: `FTP_HOST=156.67.222.228`, `FTP_USER=u179748506`, `FTP_PASS=...`
