@@ -1,0 +1,9 @@
+.DS_Store
+*.pdf
+laravel/.env
+laravel/vendor/
+laravel/bootstrap/cache/*.php
+laravel/storage/logs/*
+laravel/storage/framework/views/*
+laravel/storage/framework/cache/*
+laravel/storage/framework/sessions/*
