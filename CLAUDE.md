@@ -12,18 +12,18 @@ seav.ai is a **candidate-first job marketplace** for Australia focused on digita
 ## Stack
 | Layer | Choice | Notes |
 |---|---|---|
-| Backend | Laravel 11 | Monolith-first |
+| Backend | Laravel 12 | Monolith-first |
 | Templating | Blade | Server-rendered |
 | Interactivity | HTMX 2 | Partial swaps, no full reloads |
 | UI state | Alpine.js 3 | Drawer open/close, toasts, small state only |
 | CSS | Tailwind (Play CDN) + custom | Admin uses inline vars + custom classes |
 | Database | MySQL | DB: `seavai`, user: `root`, no password (local XAMPP) |
-| Auth | Laravel Breeze (Blade) + Socialite | Google OAuth first, LinkedIn later |
-| AI | OpenAI API via `openai-php/laravel` | GPT-4o — all jobs async via queue |
+| Auth | Custom (no Breeze) + Socialite | Google OAuth first, LinkedIn later |
+| AI | OpenAI Responses API via `openai-php/laravel` v0.19.1 | Swappable — see AI driver pattern below |
 | PDF/DOCX | `smalot/pdfparser` + `phpoffice/phpword` | PHP only, no Python microservice |
 | File storage | Local now → Wasabi (S3-compatible) later | Zero code change on migrate |
 | Email | SMTP2Go via Laravel SMTP mailer | |
-| Queue/Cache | Redis + Laravel Horizon | Required before any AI features ship |
+| Queue | Database queue driver | Redis not available on Hostinger shared hosting |
 | JS build | None | No Vite/npm — all CDN |
 
 **No SPA framework (React/Vue).** HTMX + Blade is the deliberate choice.
@@ -31,9 +31,24 @@ seav.ai is a **candidate-first job marketplace** for Australia focused on digita
 ## Running the app
 ```bash
 # NOTE: No laravel/public/ directory — public_html/ is the web root
-cd laravel
-php -S localhost:8080 -t ../public_html
-# App runs at http://localhost:8080
+
+# Option A — PHP built-in server:
+cd laravel && php -S localhost:8080 -t ../public_html
+# → http://localhost:8080
+
+# Option B — XAMPP Apache (already running):
+# → http://localhost/projects3/bigwavedigital/seavai/public_html/
+# If you get tempnam() error run: php artisan view:clear && php artisan config:clear
+# XAMPP Apache runs as a different user — storage/ needs chmod 777:
+# chmod -R 777 laravel/storage laravel/bootstrap/cache
+```
+
+## Deploying to Hostinger
+```bash
+# From repo root — syncs laravel/ and public_html/ via FTP (incremental, skips .env)
+bash deploy.sh
+# Needs lftp: brew install lftp (one-time)
+# Hostinger .env is managed manually — never overwritten by deploy.sh
 ```
 
 ## Database
@@ -53,38 +68,53 @@ cd laravel && php artisan migrate:fresh --seed --force
 ### Done
 - [x] Demo app complete — admin dashboard, jobs table, drawer, HTMX patterns all working
 - [x] All database migrations created and verified (29 tables, see schema below)
-- [x] `.env` fixed — pointing at local XAMPP `seavai` DB
+- [x] `.env` configured — XAMPP MySQL, OpenAI key set, AI provider vars added
 - [x] `MVP.md` created — flat checklist for Phase 1 only
 - [x] `BUILDPLAN.md` updated — full Phase 1–4 reference with compliance checklist
 - [x] **Section 0 complete** — all packages installed (Socialite, OpenAI, pdfparser, phpword, dompdf, Stripe, Debugbar)
 - [x] **Section 1 complete** — full auth system built (no Breeze): Google OAuth, email login/register, password reset, email verification, login_logs, privacy page, seav.ai branded views
-- [x] **CI/CD pipeline** — GitHub Actions deploy workflow created (`.github/workflows/deploy.yml`), deploys via FTP to Hostinger on push to main
-- [x] **Git repo** initialised at `seavai/` root with correct `.gitignore`
-
+- [x] **Deploy script** — `deploy.sh` at repo root uses `lftp` to FTP sync to Hostinger (run `bash deploy.sh` to deploy). Excluded from git (has FTP password). Needs `brew install lftp` once.
+- [x] **Git repo** initialised at `seavai/` root, pushed to `github.com/felixtj/seavai` (private)
 - [x] **Section 2 complete** — `CandidateProfile` + `CandidateSkill` models, `UserObserver` auto-creates profile on register, 5-step HTMX onboarding wizard, `EnsureOnboardingComplete` middleware redirects `/dashboard` to `/onboarding` until done
+- [x] **Section 3 complete** — Resume upload & AI parsing fully integrated into onboarding Step 3:
+  - `Resume` + `ResumeVersion` models
+  - Swappable AI driver: `app/Services/AI/` — `AiProvider` interface, `OpenAiProvider` (OpenAI Responses API), `GrokProvider` (xAI HTTP), `AiProviderFactory` reads `AI_PROVIDER` env var
+  - `ParseResumeJob` — PDF/DOCX text extraction → AI parse → save JSON, `tries=2`
+  - `ResumeController` — store, status (HTMX poll), download (auth-gated stream), confirm
+  - Onboarding Step 3: LinkedIn URL + Alpine drag-and-drop upload zone
+  - Partials: `processing.blade.php` (spinner + 3s poll), `review.blade.php` (editable fields), `failed.blade.php`
+  - On confirm: saves to `candidate_profiles` + `candidate_skills` (source=ai-extracted), returns Step 4 partial (skills pre-populated)
 
-### Next task — MVP.md Section 3: Resume Upload & AI Parsing
+### Next task — MVP.md Section 4: AI Resume Writer
 Pick up from here in the next session:
-1. `Resume` + `ResumeVersion` models (migrations already done)
-2. Drag-and-drop upload UI (Alpine), store to `storage/app/resumes/{user_id}/`
-3. Secure download route (auth middleware, stream — never expose path)
-4. `ParseResumeJob` — PDF via `smalot/pdfparser`, DOCX via `phpoffice/phpword`, send to OpenAI
-5. HTMX polling every 3s until `status = parsed`
-6. Parsed data review form (editable), save to `candidate_profiles` + `candidate_skills`
-
-### Before first push to GitHub
-- Add GitHub Secrets: `FTP_HOST=156.67.222.228`, `FTP_USER=u179748506`, `FTP_PASS=...`
-- Manually FTP a production `.env` to Hostinger: `/public_html/seavai/laravel/.env`
-  - Generate APP_KEY: `php artisan key:generate --show` (from laravel/ dir)
-  - Set correct Hostinger DB credentials, `APP_ENV=production`, `APP_DEBUG=false`
-- Add Google OAuth credentials (Google Cloud Console) to local `.env` to test Google login
+1. `GenerateResumeJob` — send confirmed profile JSON to AI (`rewriteResume()`), save to `resume_versions` (type=ai-draft)
+2. HTMX polling every 3s until draft ready
+3. Side-by-side review UI: original bullets vs AI-rewritten
+4. Accept → save as `resume_version` (type=final) | Regenerate → dispatch new job | Edit manually (inline)
+5. LinkedIn package: headline (220 chars) + About section (2000 chars) — same job, separate prompts
+6. Cover letter generator (one prompt, per role focus)
+7. PDF download via `barryvdh/laravel-dompdf`
+8. DOCX download via `phpoffice/phpword`
 
 ### Auth — key files
 - `app/Http/Controllers/Auth/` — 5 controllers (Social, Login, Register, PasswordReset, EmailVerification)
 - `app/Models/LoginLog.php` — insert-only login event log (no updated_at)
 - `resources/views/auth/` — 5 branded views (login, register, verify-email, forgot/reset-password)
 - `resources/views/layouts/auth.blade.php` — centered card, Inter font, seav.ai blue
-- `resources/views/app/` — dashboard + onboarding stubs (to be replaced in Section 2/6)
+
+### AI driver — key files
+- `app/Services/AI/AiProvider.php` — interface (`parseResume`, `rewriteResume`)
+- `app/Services/AI/OpenAiProvider.php` — OpenAI Responses API (`OpenAI::responses()->create(...)`)
+- `app/Services/AI/GrokProvider.php` — xAI via Laravel HTTP client
+- `app/Services/AI/AiProviderFactory.php` — reads `env('AI_PROVIDER', 'openai')`
+- Switch LLM: `AI_PROVIDER=grok` in `.env` | Change model: `OPENAI_MODEL=gpt-5.4-mini` or `GROK_MODEL=grok-3`
+
+### Resume — key files
+- `app/Models/Resume.php` + `app/Models/ResumeVersion.php`
+- `app/Jobs/ParseResumeJob.php`
+- `app/Http/Controllers/Candidate/ResumeController.php`
+- `resources/views/candidate/resume/partials/` — processing, review, failed
+- `resources/views/onboarding/partials/step.blade.php` — Step 3 has upload + LinkedIn UI
 
 ---
 
@@ -260,11 +290,13 @@ document.body.addEventListener('htmx:configRequest', function(e) {
 
 ---
 
-## OpenAI Prompt Specs
+## AI Prompt Specs
 
-### Resume Parsing
+Prompts live as constants inside `OpenAiProvider` / `GrokProvider`. Both providers use the same prompt text — only the API call differs.
+
+### Resume Parsing (`parseResume`)
 ```
-System: You are a resume parser. Extract structured data. Return ONLY valid JSON:
+instructions: You are a resume parser. Extract structured data. Return ONLY valid JSON with no markdown, no code fences:
 {
   "contact": { "name", "email", "phone", "location", "linkedin_url" },
   "summary": "string or null",
@@ -275,15 +307,26 @@ System: You are a resume parser. Extract structured data. Return ONLY valid JSON
   "languages": ["string"]
 }
 Dates: "YYYY-MM" or "YYYY". Null if unknown. Never hallucinate.
-User: [resume plain text]
+input: [resume plain text]
 ```
 
-### Resume Rewriting
+### Resume Rewriting (`rewriteResume`)
 ```
-System: Expert resume writer for Australian job market. Rewrite with stronger bullets.
-Rules: action verbs, quantified results (never invented), Australian English,
-target role: {role_focus}, same schema back with updated "description" fields only.
-User: {confirmed_profile_json}
+instructions: Expert resume writer for Australian job market. Rewrite work history bullets
+with stronger action verbs and quantified results (never invented). Australian English.
+Return ONLY the same JSON structure with updated "description" fields in work_history. No markdown, no code fences.
+input: {confirmed_profile_json}
+```
+
+### OpenAI call pattern (Responses API)
+```php
+OpenAI::responses()->create([
+    'model'        => env('OPENAI_MODEL', 'gpt-4o'),
+    'instructions' => SYSTEM_PROMPT,
+    'input'        => $userContent,
+    'temperature'  => 0,
+]);
+// Extract text: $response->outputText
 ```
 
 ---
